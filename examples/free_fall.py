@@ -28,7 +28,7 @@ class FreeFall(StateBlock):
         return x
 
     # Event Hit the Ground
-    def event_hitground(self, t, x):
+    def event_hitground(self, t, x, u):
         return -x[0]
 
 sys = System()

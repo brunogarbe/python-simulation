@@ -379,7 +379,7 @@ class System(StateBlock):
             for in_port in range(sys.num_inputs):
                 idx_in_out_matrix = output_dict[sys.inputs[in_port].block][0] + sys.inputs[in_port].port
                 input_idx.append(idx_in_out_matrix)
-            sys.input_index = np.array(input_idx) 
+            sys.input_index = input_idx
 
         # model, ev, handler, idx, sz in
         for i, _ in enumerate(self.all_events):
@@ -431,7 +431,7 @@ class System(StateBlock):
             out[idx_out:idx_out+num_outputs] = bl.output(t, x[idx_state:idx_state+num_states], u)
         return out
         
-    def exit(self):
+    def exit(self, t, x, u): #, u):
         self.exit_flag = True
 
     def get_events_list(self):
@@ -447,6 +447,10 @@ class System(StateBlock):
         
     def get_event_handler(self, idx):
         handler = self.all_events[idx][2]
+        return handler
+        
+    def get_event_block(self, idx):
+        handler = self.all_events[idx][0]
         return handler
 
     def __str__(self):
@@ -521,7 +525,7 @@ class Scheduler:
     def next_time(self):
         return self.events_table[0][0]
 
-    def call_handlers(self, X, Y):
+    def call_handlers(self, t, X, Y):
         #print('t_event =', self.events_table[0][0], X, Y)
         for handler in self.events_table[0][1]:
             if handler is not None:
@@ -532,7 +536,7 @@ class Scheduler:
                 idx_start = handler.__self__.state_index[0]
                 idx_end = handler.__self__.state_index[0] + handler.__self__.state_index[1]
                 print(Y, handler.__self__.input_index)
-                handler(x, u)
+                handler(t, x, u)
                 
     def has_ended(self):
         return len(self.events_table) == 0 
@@ -623,7 +627,7 @@ def simulate_nostates(sys):
         # #X_initial = sol.y[:,-1]
         # #print('X_initial', X_initial)
         # #print('y_array[:,-1]', y_array[:,-1])
-        scheduler.call_handlers(X_null, np.array([0, 0, 0, 0, 0, 0, 0]))
+        scheduler.call_handlers(t_interval_end, X_null, np.array([0, 0, 0, 0, 0, 0, 0]))
         scheduler.pop()
 
     res = Results(time=t_array, outputs=y_array, names=sys.outnames)
@@ -636,7 +640,6 @@ def simulate_scipy(sys):
     #def simulate2(sys, t_final=10.0):
     t_start = 0.0
     t_final=10.0
-
 
     all_events = sys.get_events_list() #[event03]
 
@@ -684,6 +687,7 @@ def simulate_scipy(sys):
             
                 t = sol.t_events[0]
                 x = sol.y_events[0][0,:]
+                y = sys.output(t, x) 
                 
                 t_interval_start = sol.t_events[0]
                 X_initial = x #sol.y_events[0].reshape((sys.num_states,1))
@@ -691,13 +695,18 @@ def simulate_scipy(sys):
                 for i, event_function in enumerate(all_events):
                     idx, sz = sys.get_event_indexes(i)
                     handler = sys.get_event_handler(i)
+                    bl = sys.get_event_block(i)
                     #print('oi')
                     value = event_function(t, X_initial)
                     
                     #print(f'% {i} {value} [{idx}:{sz}] {handler}')
                     if abs(value) < 0.00001:
                         #print('bingo')
-                        X_initial[idx:sz] = handler(t, X_initial[idx:sz])
+                        #print(bl.input_index, type(bl.input_index))
+                        u = y[bl.input_index]
+                        ret = handler(t, X_initial[idx:sz], u)
+                        if ret is not None:
+                            X_initial[idx:sz] = ret 
                 
                 #print('@', t, x, X_initial)
                 
@@ -709,6 +718,9 @@ def simulate_scipy(sys):
                 t_array = np.append(t_array, sol.t)
                 x_array = np.append(x_array, sol.y, axis=1)
                 y_array = np.append(y_array, y_sol, axis=1)
+                
+                if sys.exit_flag is True:
+                    break
             
             if sol.status == 0:
                 #print('Success, t end reached.')
@@ -729,7 +741,7 @@ def simulate_scipy(sys):
         X_initial = sol.y[:,-1]
         print('X_initial', X_initial)
         print('y_array[:,-1]', y_array[:,-1])
-        scheduler.call_handlers(X_initial, y_array[:,-1])
+        scheduler.call_handlers(t_interval_end, X_initial, y_array[:,-1])
         scheduler.pop()
 
         if sys.exit_flag is True:

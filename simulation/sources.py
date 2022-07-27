@@ -56,7 +56,7 @@ class Step(BasicBlock):
         if self.ts <= t_final:
             scheduler.add(self.ts, self.event_handler)
 
-    def event_handler(self, x, u):
+    def event_handler(self, t, x, u):
         self.value = self.fv
 
 
@@ -77,13 +77,13 @@ class Pulse(BasicBlock):
     def output(self, t, x, u):
         return self.value
             
-    def add_schedule(self, scheduler, t_final):
+    def add_schedule(self, scheduler, t_start, t_final):
         t = 0.0
         while t < t_final:
             scheduler.add(t, self.event_handler)
             t += self.T/2
 
-    def event_handler(self, x, u):
+    def event_handler(self, t, x, u):
         if self.fsm == False:
             self.fsm = True
             self.value = self.fv

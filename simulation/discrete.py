@@ -24,6 +24,39 @@ from .core import BasicBlock
 
 import numpy as np
 
+# Discontinuities
+# https://lost-contact.mit.edu/afs/inf.ed.ac.uk/group/teaching/matlab-help/R2016b/simulink/slref/saturation.html
+# Saturation
+# Saturation Dynamic
+
+# Saturation	Limit range of signal
+# Backlash	Model behavior of system with play
+# Coulomb and Viscous Friction	Model discontinuity at zero, with linear gain elsewhere
+# Dead Zone	Provide region of zero output
+# Dead Zone Dynamic	Set inputs within bounds to zero
+# Hit Crossing	Detect crossing point
+# Quantizer	Discretize input at specified interval
+# Rate Limiter	Limit rate of change of signal
+# Rate Limiter Dynamic	Limit rising and falling rates of signal
+# Relay	Switch output between two constants
+# Saturation Dynamic	Bound range of input
+# Wrap To Zero	Set output to zero if input is above threshold
+
+# Backlash	Model behavior of system with play
+# Coulomb and Viscous Friction	Model discontinuity at zero, with linear gain elsewhere
+# Dead Zone	Provide region of zero output
+# Dead Zone Dynamic	Provide dynamic region of zero output
+# Hit Crossing	Detect crossing point
+# PWM	Generate ideal pulse width modulated signal corresponding to input duty cycle
+# Quantizer	Discretize input at given interval
+# Rate Limiter	Limit rate of change of signal
+# Rate Limiter Dynamic	Limit rate of change of signal
+# Relay	Switch output between two constants
+# Saturation	Limit input signal to the upper and lower saturation values
+# Saturation Dynamic	Limit input signal to dynamic upper and lower saturation values
+# Variable Pulse Generator	Generate ideal, time varying pulse signal
+# Wrap To Zero	Set output to zero if input is above threshold
+
 class ZeroOrderHold(BasicBlock):
 
     def __init__(self, x0=0.0, ts=0.0):
@@ -51,7 +84,7 @@ class ZeroOrderHold(BasicBlock):
         for s in samples:
             scheduler.add(s, self.test_handler)
 
-    def test_handler(self, x, u):
+    def test_handler(self, t, x, u):
         self.fsm = True
 
 
@@ -89,7 +122,7 @@ class DiscreteTeste(BasicBlock):
         for s in samples:
             scheduler.add(s, self.test_handler)
 
-    def test_handler(self, x, u):
+    def test_handler(self, t, x, u):
         #self.fsm = True
         #print('================================================')
         #print('x', x)

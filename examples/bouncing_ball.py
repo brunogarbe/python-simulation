@@ -40,10 +40,10 @@ class BouncingBall(StateBlock):
         return x
 
     # Event Hit the Ground
-    def event_hitground(self, t, x):
+    def event_hitground(self, t, x, u):
         return -x[0]
 
-    def handler_hitground(self, t, x):
+    def handler_hitground(self, t, x, u):
         if abs(x[1]) < 0.1:
             x[0] = 0.0
             x[1] = 0.0
@@ -52,35 +52,12 @@ class BouncingBall(StateBlock):
             x[1] = -0.9*x[1]
         return x
 
-
-# https://mbe.modelica.university/behavior/discrete/bouncing/
-# model BouncingBall "The 'classic' bouncing ball model"
-#   type Height=Real(unit="m");
-#   type Velocity=Real(unit="m/s");
-#   parameter Real e=0.8 "Coefficient of restitution";
-#   parameter Height h0=1.0 "Initial height";
-#   Height h "Height";
-#   Velocity v(start=0.0, fixed=true) "Velocity";
-# initial equation
-#   h = h0;
-# equation
-#   v = der(h);
-#   der(v) = -9.81;
-#   when h<0 then
-#     reinit(v, -e*pre(v));
-#   end when;
-# end BouncingBall;
-
 ball = BouncingBall(5.0)
 
 sys = System()
 sys.add(ball)
-#sys.add_event(ball, ball.HitGroundEvent, ball.test_handler)
 
-sys.prepare()
-
-res = simulate(sys)
-t_array = res.time
+sol = simulate(sys)
 
 fig, axs = plt.subplots(2)
 fig.suptitle('Vertically stacked subplots')
@@ -88,14 +65,13 @@ fig.suptitle('Vertically stacked subplots')
 major_ticks_top = np.linspace(0,10,21)
 minor_ticks_top = np.linspace(0,10,101)
 
-axs[0].plot(t_array, res['BouncingBall.height'])#, marker='o') 
+axs[0].plot(sol.time, sol['BouncingBall.height'])
 axs[0].set_xticks(major_ticks_top)
-#axs[0].set_yticks(major_ticks_top)
 axs[0].set_xticks(minor_ticks_top,minor=True)
 axs[0].grid(which="major", alpha=0.6)
 axs[0].grid(which="minor", alpha=0.1)
 
-axs[1].plot(t_array, res['BouncingBall.velocity'])#, marker='o')
+axs[1].plot(sol.time, sol['BouncingBall.velocity'])
 axs[1].set_xticks(major_ticks_top)
 axs[1].set_xticks(minor_ticks_top,minor=True)
 axs[1].grid(which="major", alpha=0.6)

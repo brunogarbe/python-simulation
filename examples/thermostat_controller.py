@@ -31,7 +31,7 @@ class Thermostat(BasicBlock):
         else:
             return 19 - u[0]
             
-    def handler_change(self, t, x):
+    def handler_change(self, t, x, u):
         if self.fsm == True:
             self.fsm = False
         else:
@@ -109,7 +109,7 @@ class Plant(StateBlock):
         else:
             return 19 - x[0]
             
-    def handler_change(self, t, x):
+    def handler_change(self, t, x, u):
         if self.fsm == True:
             self.fsm = False
         else:
