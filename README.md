@@ -1,2 +1,2 @@
-# python-simulation
+# Python System Simulation Library
 The Python System Simulation Library is a Python module that implements a framework for modeling and simulating interconnected hybrid systems.
