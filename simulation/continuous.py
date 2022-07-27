@@ -28,7 +28,6 @@ class Integrator(StateBlock):
     def output(self, t, x, u):
         return x
 
-
 class FirstOrder(StateBlock):
 
     def __init__(self, x0=0.0, tau=1.0, dc_gain=1.0, name=None):
@@ -69,8 +68,6 @@ class StateSpace(StateBlock):
         self.num_states = A.shape[0]
         num_inputs = B.shape[1]
         num_outputs = C.shape[0]
-
-        #print('B', B, B.shape[1])
 
         for i in range(num_inputs):
             self.add_input('input' + str(i))
@@ -113,8 +110,6 @@ class TransferFunction(StateBlock):
 
         A, B, C, D = tf2ss(num, den)
 
-        print('C', C, C.shape)
-
         self.num_states = A.shape[0]
         num_inputs = B.shape[1]
         num_outputs = C.shape[0]
@@ -126,7 +121,6 @@ class TransferFunction(StateBlock):
             self.add_output('output' + str(i))
 
         # set the initial conditions
-        #if x0 is None:
         self.x0 = np.zeros(self.num_states)
 
         self.A = np.array(A)
@@ -150,18 +144,6 @@ class TransferFunction(StateBlock):
         return np.reshape(xdot, (self.num_states,))
 
     def output(self, t, x, u): #, u):
-        # print('x', x)
-        # print('self.num_states', self.num_states)
-        # print('x', np.reshape(x, (self.num_states, 1)))
         y = np.matmul(self.C, np.reshape(x, (self.num_states, 1))) # + np.matmul(self.B, np.reshape(x, (self.num_inputs, 1)))
-        # print('y', y)
-        # print('self.num_outputs', self.num_outputs)
         return np.reshape(y, (self.num_outputs,))
 
-# Derivative
-# Integrator
-# Integrator Limited
-# Second-Order Integrator
-# PID Controller
-# Transport Delay
-# Variable Transport Delay

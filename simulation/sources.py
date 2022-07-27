@@ -1,4 +1,4 @@
-from .core import BasicBlock #, create_channels
+from .core import BasicBlock
 
 from enum import Enum
 import numpy as np
@@ -92,8 +92,6 @@ class Pulse(BasicBlock):
             self.value = self.iv
 
 
-# https://www.mathworks.com/help/simulink/slref/step.html
-# Sine Wave
 class Sine(BasicBlock):
     
     def __init__(self, fv=1.0, ws=0.0):
@@ -106,13 +104,3 @@ class Sine(BasicBlock):
     def output(self, t, x, u):
         return np.sin(np.array([2*self.ws*t]))
 
-
-# PMW signal
-# sawtooth Ramp
-# From Function
-# InterpolateSignal (repeat and not repeated) # From Variable
-# Chirp Signal
-# Constant
-# Band-Limited White Noise
-# Random Number
-# Uniform Random Number
