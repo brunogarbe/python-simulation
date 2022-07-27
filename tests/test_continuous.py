@@ -25,7 +25,7 @@ def test_first_order_step_response(first_order_gain, first_order_tau):
     sys.connect(step, 0, first, 0)
 
     # simulate
-    sol = simulate(sys)
+    sol = simulate(sys, dt_max=0.01)
 
     # generate reference signal based on simulated time
     ref = first_order_gain * (np.ones_like(sol.time) - np.exp(-(1/first_order_tau) * sol.time))
@@ -57,7 +57,7 @@ def test_integrator_feedback_step_response(integrator_tau):
     sys.connect(sum, 0, intg, 0)
 
     # simulate
-    sol = simulate(sys)
+    sol = simulate(sys, dt_max=0.01)
 
     # generate reference signal based on simulated time
     first_order_tau = 1.0
