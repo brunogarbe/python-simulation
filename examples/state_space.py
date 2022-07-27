@@ -8,8 +8,8 @@ from scipy.signal import tf2ss
 num = [1, 3, 3]
 den = [1, 2, 1]
 
-A, B, C, D = tf2ss(num, den)
-print(A, B, C, D)
+# A, B, C, D = tf2ss(num, den)
+# print(A, B, C, D)
 
 # print(A, type(A))
 
@@ -100,6 +100,8 @@ axs.grid(which="major", alpha=0.6)
 axs.grid(which="minor", alpha=0.1)
 
 plt.show()
+
+print(sol.time)
 
 # https://stackoverflow.com/questions/68533913/solving-a-differential-algebraic-equation-dae-problem-with-gekko
 # https://stackoverflow.com/questions/23578596/solve-an-implicit-ode-differential-algebraic-equation-dae

@@ -57,7 +57,7 @@ ball = BouncingBall(5.0)
 sys = System()
 sys.add(ball)
 
-sol = simulate(sys)
+sol = simulate(sys, dt_max = 0.01)
 
 fig, axs = plt.subplots(2)
 fig.suptitle('Vertically stacked subplots')

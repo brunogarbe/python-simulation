@@ -7,16 +7,49 @@ import networkx as nx
 from scipy.integrate import solve_ivp
 
 
-# https://stackoverflow.com/questions/60136367/simultaneous-event-detection-using-solve-ivp
-def gen_event(call, idx, sz, sys, input_idx):
+def generate_track_event(call, idx, sz, sys, input_idx):
+    """Generate an event function in the format that the solve_ivp function can track, from the
+    way they are normally coded in the simulation library, from an method inside an class, and
+    considering the transformation indexes that convert the ``X`` and ``Y`` global vectors from
+    the system to the ``x`` and ``u`` local vectors of the object.
     
-    def event(t, x):
-        y = sys.output(t, x)
-        u = y[input_idx] if len(input_idx) != 0 else None
-        return call(t, x[idx:idx+sz], u)
-    event.terminal = True
-    event.direction = 1
-    return event
+    Args:
+        call (method) : event method from class
+        idx (int) : index of the start of states from global to local
+        sz (int) : number of states of the class
+        sys (System) : System being simulated
+        input_idx (list[int]) : list of indexes that transform global ``Y`` to local ``u``
+        
+    Returns:
+        callable function with signature event(t, x)
+    
+    References:
+        Simultaneous event detection using solve_ivp
+        https://stackoverflow.com/questions/60136367/simultaneous-event-detection-using-solve-ivp
+        
+        scipy.integrate.solve_ivp
+        https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html
+    """
+    
+    # create the event that will be returned
+    def event_function(t, X):
+        # calculates the global output vector ``Y`` for the system
+        Y = sys.output(t, X)
+        
+        # gets the local input vector ``u`` and state vector ``x`` for the object
+        #u = Y[input_idx] if len(input_idx) != 0 else None
+        u = Y[input_idx]
+        x = X[idx:idx+sz]
+        
+        return call(t, x, u)
+    
+    # Assign the attributes for the solve_ivp terminate if the event occurs and
+    # the direction of the zero crossing, as the direction is positive, the event will only trigger
+    # when going from negative to positive.
+    event_function.terminal = True
+    event_function.direction = 1
+    
+    return event_function
         
 class Channel:
     def __init__(self, block=None, port=None):
@@ -162,7 +195,7 @@ class System(StateBlock):
 
         self.blocks = []
         self.all_events = []
-        self.sys_order = []
+        self.block_order = []
 
         self.connections = []
         self.direct_connections = []
@@ -174,14 +207,14 @@ class System(StateBlock):
     def add(self, bl):
 
         if isinstance(bl, Subsystem) == True:
-            print('BINGO!!!')
+            #print('BINGO!!!')
             for b in bl.blocks:
-                print('bingo')
+                #print('bingo')
                 self.blocks.append(b)
 
             # connect the internal
             for bl_out, out_port, bl_in, in_port in bl.connections:
-                print('con')
+                #print('con')
                 self.connect(bl_out, out_port, bl_in, in_port)
 
                 # TODO: check for events!!
@@ -246,14 +279,14 @@ class System(StateBlock):
         # get the order of the blocks by topological sort
         block_order = list(nx.topological_sort(graph))
 
-        print(block_order)
+        #print(block_order)
 
         # calculate the state/output indexes
         self.num_states = 0
         self.num_outputs = 0
         idx_state = 0
         idx_output = 0
-        self.sys_order = []
+        self.block_order = []
         state_dict = {}
         output_dict = {}
 
@@ -263,7 +296,7 @@ class System(StateBlock):
             self.num_outputs += sys.num_outputs
             for i in range(sys.num_outputs):
                 self.outnames.append(sys.name + '.' + sys.outputs[i].name)
-            self.sys_order.append( (sys, idx_state, sys.num_states, idx_output, sys.num_outputs) )
+            self.block_order.append( (sys, idx_state, sys.num_states, idx_output, sys.num_outputs) )
             state_dict[sys] = (idx_state, sys.num_states)
             output_dict[sys] = (idx_output, sys.num_outputs)
 
@@ -294,7 +327,7 @@ class System(StateBlock):
 
     def initial(self):
         x0 = np.zeros(self.num_states)
-        for sys, idx_states, num_states, _, _ in self.sys_order:
+        for sys, idx_states, num_states, _, _ in self.block_order:
             if sys.num_states > 0:
                 x0[idx_states:idx_states+num_states] = sys.initial()
 
@@ -304,7 +337,7 @@ class System(StateBlock):
         dx = np.zeros(self.num_states)
         out = self.output(t, x)
         
-        for bl, idx_state, num_states, _, _ in self.sys_order:
+        for bl, idx_state, num_states, _, _ in self.block_order:
             u = out[bl.input_index] if bl.num_inputs > 0 else None
 
             if num_states != 0:
@@ -315,7 +348,7 @@ class System(StateBlock):
     def output(self, t, x):
         out = np.zeros(self.num_outputs)
         
-        for bl, idx_state, num_states, idx_out, num_outputs in self.sys_order:
+        for bl, idx_state, num_states, idx_out, num_outputs in self.block_order:
             if bl.is_direct_feedthrough == False:
                 u = None
             else:
@@ -330,7 +363,7 @@ class System(StateBlock):
     def get_events_list(self):
         ret = []
         for model, ev, _, idx, sz in self.all_events:
-            ret.append(gen_event(ev, idx, sz, self, model.input_index))
+            ret.append(generate_track_event(ev, idx, sz, self, model.input_index))
         return ret
         
     def get_event_indexes(self, idx):
@@ -354,7 +387,7 @@ class System(StateBlock):
             ret += f'{"":3} {bl.name} {bl.id}\n'
         
         ret += '# Connections:\n'
-        for bl, idx, num_states, idx_out, num_outputs in self.sys_order:
+        for bl, idx, num_states, idx_out, num_outputs in self.block_order:
             for i in range(bl.num_outputs):
                 dir_feed = '*' if bl.is_direct_feedthrough == True else ''
                 full_name_out = dir_feed + bl.name + '.' + bl.outputs[i].name + '<' + str(i) + '>'
@@ -423,7 +456,7 @@ class Scheduler:
                 u = None if handler.__self__.num_inputs == 0 else Y[handler.__self__.input_index]
                 idx_start = handler.__self__.state_index[0]
                 idx_end = handler.__self__.state_index[0] + handler.__self__.state_index[1]
-                print(Y, handler.__self__.input_index)
+                #print(Y, handler.__self__.input_index)
                 handler(t, x, u)
                 
     def has_ended(self):
@@ -443,15 +476,14 @@ class Results:
 
 ####################################################################################################
 
-def simulate(sys, t_final=10.0, dt_max = 0.01):
+def simulate(sys, t_start=0.0, t_final=10.0, dt_max = np.inf):
 
     sys.prepare()
 
     if sys.num_states == 0:
         return simulate_nostates(sys)
     else:
-
-        return simulate_scipy(sys)
+        return simulate_scipy(sys, t_start, t_final, dt_max)
 
 
 def simulate_nostates(sys):
@@ -465,7 +497,7 @@ def simulate_nostates(sys):
     scheduler = Scheduler()
     scheduler.add(t_final, None)
 
-    for bl in sys.sys_order:
+    for bl in sys.block_order:
         if hasattr(bl[0], 'add_schedule') == True:
             bl[0].add_schedule(scheduler, 0.0, t_final)
 
@@ -496,91 +528,127 @@ def simulate_nostates(sys):
 
     return res
 
-def simulate_scipy(sys):
-    sys.prepare()
+def simulate_scipy(sys, t_start, t_final, dt_max):
 
-    t_start = 0.0
-    t_final=10.0
-
-    all_events = sys.get_events_list()
-
-    X_cur = sys.initial()
-
-    # start the scheduler
-    scheduler = Scheduler()
-    scheduler.add(t_final, None)
-
-    for bl in sys.sys_order:
-        if hasattr(bl[0], 'add_schedule') == True:
-            bl[0].add_schedule(scheduler, 0.0, t_final)
-            
+    # set the history arrays for record time, state and output vectors for the system
     t_array = np.empty(0)
     x_array = np.empty((sys.num_states, 0))
     y_array = np.empty((sys.num_outputs, 0))
-#    events_array = []
 
+    # sets the global initial state vector
     X_initial = sys.initial()
-    t_interval_end = t_start
+    
+    # start the scheduler and set an final time event with no event handler
+    scheduler = Scheduler()
+    scheduler.add(t_final, None)
 
+    # check for time events defined in the systems blocks
+    for bl in sys.block_order:
+        if hasattr(bl[0], 'add_schedule') == True:
+            bl[0].add_schedule(scheduler, 0.0, t_final)
+
+    # Generate a list of events to track in the solve_ivp format.
+    all_events = sys.get_events_list()
+    
+    # TODO: check for events out of the simulation range [t_start, t_final)
+
+    # check for time event on the start time of the simulation and calls the handle if necessary
+    if np.isclose(t_start, scheduler.next_time()) == True:
+        Y_initial = sys.output(t_start, X_initial)
+        scheduler.call_handlers(t_start, X_initial, Y_initial)
+        scheduler.pop()
+
+    # iterate over the regions [t_interval_start, t_interval_end), using solve_ivp to integrate on
+    # the defined interval. The t_interval_start and t_interval_end are obtained from the t_start
+    # value and the time values on the scheduler object.
+    t_interval_end = t_start
     while scheduler.has_ended() == False:
         t_interval_start = t_interval_end
         t_interval_end = scheduler.next_time()
         
+        # iterave over state events that occur in the time region being solved py solve_ivp
         while True:
         
-            sol = solve_ivp(sys.derivative, (t_interval_start, t_interval_end), X_initial, events=all_events, max_step=0.01)
+            # Solve an initial value problem for a system of ODEs.
+            sol = solve_ivp(sys.derivative, (t_interval_start, t_interval_end), X_initial, events=all_events, max_step=dt_max)
             
-            if sol.status == 1:
-                t = sol.t_events[0]
-                x = sol.y_events[0][0,:]
-                y = sys.output(t, x) 
+            # The solver successfully reached the end of tspan.
+            if sol.status == 0:
                 
+                # get the size of the solution from solve_ivp
+                num_samples = sol.y.size // len(sol.y)
+                
+                # get the simulated state from solve_ivp solution and calculates the output vector
+                y_sol = np.empty((sys.num_outputs, num_samples))
+                for i in range(num_samples):
+                    y_sol[:,i] = sys.output(sol.t[i], sol.y[:,i])
+                
+                # append the results to history arrays
+                t_array = np.append(t_array, sol.t)
+                x_array = np.append(x_array, sol.y, axis=1)
+                y_array = np.append(y_array, y_sol, axis=1)
+                
+                # stops the simulation in the time region, since the solver reaches the end of the interval
+                break
+
+            # A termination event occurred.
+            elif sol.status == 1:
+
+                # set the new start interval for the simulation
                 t_interval_start = sol.t_events[0]
-                X_initial = x #sol.y_events[0].reshape((sys.num_states,1))
+                X_initial = sol.y_events[0][0,:]
+                Y_initial = sys.output(t_interval_start, X_initial)
                 
+                # Iterate over all state events and check if they are triggered since
+                # solve_ivp does not detect additional events that happen at the same time
+                # https://stackoverflow.com/questions/60136367/simultaneous-event-detection-using-solve-ivp
                 for i, event_function in enumerate(all_events):
                     idx, sz = sys.get_event_indexes(i)
                     handler = sys.get_event_handler(i)
                     bl = sys.get_event_block(i)
-                    value = event_function(t, X_initial)
+                    value = event_function(t_interval_start, X_initial)
                     
-                    if abs(value) < 0.00001:
-                        u = y[bl.input_index]
-                        ret = handler(t, X_initial[idx:sz], u)
+                    if np.isclose(value, 0.0) == True:
+                        u = Y_initial[bl.input_index]
+                        ret = handler(t_interval_start, X_initial[idx:sz], u)
                         if ret is not None:
                             X_initial[idx:sz] = ret 
                 
-                sz = sol.y.size // len(sol.y)
-                y_sol = np.empty((sys.num_outputs, sz))
-                for i in range(sz):
+                # get the size of the solution from solve_ivp
+                num_samples = sol.y.size // len(sol.y)
+
+                # get the simulated state from solve_ivp solution and calculates the output vector
+                y_sol = np.empty((sys.num_outputs, num_samples))
+                for i in range(num_samples):
                     y_sol[:,i] = sys.output(sol.t[i], sol.y[:,i])
 
+                # append the results to history arrays
                 t_array = np.append(t_array, sol.t)
                 x_array = np.append(x_array, sol.y, axis=1)
                 y_array = np.append(y_array, y_sol, axis=1)
                 
+                # terminate the simulation if is exit_flag is set True
                 if sys.exit_flag is True:
                     break
             
-            if sol.status == 0:           
-                sz = sol.y.size // len(sol.y)
-                y_sol = np.empty((sys.num_outputs, sz))
-                for i in range(sz):
-                    y_sol[:,i] = sys.output(sol.t[i], sol.y[:,i])
+            # solve_ivp integration step failed
+            elif sol.status == -1:
+                raise Exception(f"solve_ivp integration step failed: {sol.message}")
                 
-                t_array = np.append(t_array, sol.t)
-                x_array = np.append(x_array, sol.y, axis=1)
-                y_array = np.append(y_array, y_sol, axis=1)
-                
-                break
+            else:
+                raise Exception(f"Unknown solve_ivp status for algorithm termination: {sol.message}")
         
+        # Sets the new initial X state for the next time region
         X_initial = sol.y[:,-1]
+        
+        # Call the time event handlers of the end of the time region being simulated
         scheduler.call_handlers(t_interval_end, X_initial, y_array[:,-1])
         scheduler.pop()
 
+        # Breaks the second iteration loop
         if sys.exit_flag is True:
             break
 
+    # Prepare the results output object and return it
     res = Results(time=t_array, outputs=y_array, names=sys.outnames)
-        
     return res
